@@ -23,10 +23,11 @@ php artisan serve
 
 ## النشر
 
-تم تجهيز المشروع للنشر على Laravel Cloud.
+تم تجهيز المشروع للنشر على Laravel Cloud وعلى Oracle Cloud Always Free.
 
 راجع الملف:
 - [DEPLOY_LARAVEL_CLOUD.md](./DEPLOY_LARAVEL_CLOUD.md)
+- [DEPLOY_ORACLE_ALWAYS_FREE.md](./DEPLOY_ORACLE_ALWAYS_FREE.md)
 - [PRODUCTION_ENV.md](./PRODUCTION_ENV.md)
 - [SECURITY_REVIEW.md](./SECURITY_REVIEW.md)
 

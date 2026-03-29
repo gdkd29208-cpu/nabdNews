@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nabdnews
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    env_file:
+      - deploy/oracle/.env.oracle
+    volumes:
+      - ./storage:/var/www/html/storage
+      - ./database:/var/www/html/database
+    command: ["sh", "/var/www/html/deploy/oracle/start.sh"]

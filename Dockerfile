@@ -14,9 +14,9 @@ RUN npm run build
 
 FROM php:8.2-fpm-alpine
 RUN apk add --no-cache nginx supervisor bash icu-dev libzip-dev oniguruma-dev \
-    freetype-dev libpng-dev libjpeg-turbo-dev zlib-dev libpq-dev git \
+    freetype-dev libpng-dev libjpeg-turbo-dev zlib-dev libpq-dev sqlite-dev git \
  && docker-php-ext-configure gd --with-freetype --with-jpeg \
- && docker-php-ext-install gd intl zip pdo_mysql pdo_pgsql bcmath
+ && docker-php-ext-install gd intl zip pdo_mysql pdo_pgsql pdo_sqlite sqlite3 bcmath
 
 WORKDIR /var/www/html
 COPY . .
