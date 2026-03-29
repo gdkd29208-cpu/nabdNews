@@ -1,0 +1,61 @@
+services:
+  - type: web
+    name: nabdnews
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_URL
+        value: https://nabdnews.onrender.com
+      - key: APP_KEY
+        sync: false
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: nabdnews-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: nabdnews-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: nabdnews-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: nabdnews-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: nabdnews-db
+          property: password
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: FILESYSTEM_DISK
+        value: public
+      - key: ADMIN_REGISTRATION_SECRET
+        sync: false
+      - key: LOG_LEVEL
+        value: warning
+    buildCommand: |
+      composer install --no-dev --no-progress --prefer-dist --optimize-autoloader
+      npm ci
+      npm run build
+    startCommand: |
+      php artisan migrate --force
+      php artisan storage:link
+      /usr/bin/supervisord -c /etc/supervisord.conf
+
+databases:
+  - name: nabdnews-db
+    plan: free
