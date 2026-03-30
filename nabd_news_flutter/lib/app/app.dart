@@ -5,7 +5,10 @@ import 'app_state.dart';
 import 'theme.dart';
 
 class NabdApp extends StatefulWidget {
-  const NabdApp({super.key});
+  const NabdApp({super.key, this.appState, this.bootstrapOnStart = true});
+
+  final AppState? appState;
+  final bool bootstrapOnStart;
 
   @override
   State<NabdApp> createState() => _NabdAppState();
@@ -17,7 +20,10 @@ class _NabdAppState extends State<NabdApp> {
   @override
   void initState() {
     super.initState();
-    _appState = AppState.seeded();
+    _appState = widget.appState ?? AppState();
+    if (widget.bootstrapOnStart && widget.appState == null) {
+      _appState.bootstrap();
+    }
   }
 
   @override

@@ -43,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'نسخة Flutter هذه تستخدم حسابات تجريبية محلية حتى تتأكد من التجربة قبل ربط API.',
+                  'هذه الشاشة مربوطة مباشرة مع AMPPS API المحلي للتسجيل والدخول.',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
@@ -63,23 +63,34 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 18),
                 FilledButton(
-                  onPressed: () {
-                    final success = state.login(
-                      email: _emailController.text,
-                      password: _passwordController.text,
-                    );
-                    if (!success) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('بيانات الدخول غير صحيحة.'),
-                        ),
-                      );
-                      return;
-                    }
-                    Navigator.of(context).pop();
-                  },
+                  onPressed: state.isLoading
+                      ? null
+                      : () async {
+                          final success = await state.login(
+                            email: _emailController.text,
+                            password: _passwordController.text,
+                          );
+                          if (!context.mounted) {
+                            return;
+                          }
+                          if (!success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  state.lastError ?? 'بيانات الدخول غير صحيحة.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.of(context).pop();
+                        },
                   child: const Text('دخول'),
                 ),
+                if (state.isLoading) ...[
+                  const SizedBox(height: 14),
+                  const LinearProgressIndicator(),
+                ],
                 const SizedBox(height: 20),
                 const Divider(),
                 const SizedBox(height: 12),
@@ -90,9 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text('editor@nabd.app / admin123'),
-                const SizedBox(height: 6),
-                const Text('sara@nabd.app / journalist123'),
+                const Text('إذا ما عندك حساب، سجّل من شاشة إنشاء الحساب.'),
               ],
             ),
           ),
@@ -195,24 +204,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 18),
                 FilledButton(
-                  onPressed: () {
-                    final error = state.register(
-                      name: _nameController.text,
-                      email: _emailController.text,
-                      password: _passwordController.text,
-                      confirmPassword: _confirmController.text,
-                      adminSecret: _adminSecretController.text,
-                    );
-                    if (error != null) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(error)));
-                      return;
-                    }
-                    Navigator.of(context).pop();
-                  },
+                  onPressed: state.isLoading
+                      ? null
+                      : () async {
+                          final error = await state.register(
+                            name: _nameController.text,
+                            email: _emailController.text,
+                            password: _passwordController.text,
+                            confirmPassword: _confirmController.text,
+                            adminSecret: _adminSecretController.text,
+                          );
+                          if (!context.mounted) {
+                            return;
+                          }
+                          if (error != null) {
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(error)));
+                            return;
+                          }
+                          Navigator.of(context).pop();
+                        },
                   child: const Text('إنشاء الحساب'),
                 ),
+                if (state.isLoading) ...[
+                  const SizedBox(height: 14),
+                  const LinearProgressIndicator(),
+                ],
               ],
             ),
           ),

@@ -21,6 +21,20 @@ class HomeScreen extends StatelessWidget {
     final state = AppScope.of(context);
     final user = state.currentUser;
 
+    if (!state.isInitialized && state.news.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state.lastError != null && state.news.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+        child: EmptyStateCard(
+          title: 'تعذر تحميل الأخبار',
+          message: state.lastError!,
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
       child: Column(

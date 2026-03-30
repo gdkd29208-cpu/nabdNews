@@ -41,6 +41,11 @@ class _NabdShellState extends State<NabdShell> {
       appBar: AppBar(
         title: Text(_titles[_selectedIndex]),
         actions: [
+          IconButton(
+            tooltip: 'تحديث',
+            onPressed: state.isLoading ? null : () => state.refreshData(),
+            icon: const Icon(Icons.refresh),
+          ),
           if (currentUser == null)
             TextButton(onPressed: _openLogin, child: const Text('دخول'))
           else

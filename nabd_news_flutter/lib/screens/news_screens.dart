@@ -26,6 +26,10 @@ class _NewsHubScreenState extends State<NewsHubScreen> {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
+    if (!state.isInitialized && state.news.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final filtered = state.filterNews(
       category: _selectedCategory,
       query: _query,
@@ -84,9 +88,11 @@ class _NewsHubScreenState extends State<NewsHubScreen> {
           const SizedBox(height: 10),
           Expanded(
             child: filtered.isEmpty
-                ? const EmptyStateCard(
+                ? EmptyStateCard(
                     title: 'ماكو نتائج',
-                    message: 'غيّر الفلتر أو جرّب كلمة بحث مختلفة.',
+                    message:
+                        state.lastError ??
+                        'غيّر الفلتر أو جرّب كلمة بحث مختلفة.',
                   )
                 : ListView.separated(
                     itemCount: filtered.length,
@@ -177,8 +183,11 @@ class ArticleDetailScreen extends StatelessWidget {
                     ),
                   ),
                 );
-                if (shouldDelete == true && context.mounted) {
-                  final deleted = state.deleteArticle(articleId);
+                if (shouldDelete == true) {
+                  final deleted = await state.deleteArticle(articleId);
+                  if (!context.mounted) {
+                    return;
+                  }
                   if (deleted) {
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -298,6 +307,7 @@ class _ArticleEditorScreenState extends State<ArticleEditorScreen> {
   late final TextEditingController _linkController;
   late final TextEditingController _imageController;
   late String _category;
+  late bool _isBreaking;
 
   @override
   void initState() {
@@ -309,6 +319,7 @@ class _ArticleEditorScreenState extends State<ArticleEditorScreen> {
     _linkController = TextEditingController(text: article?.link ?? '');
     _imageController = TextEditingController(text: article?.imageUrl ?? '');
     _category = article?.category ?? NewsArticle.categories.first;
+    _isBreaking = article?.isBreaking ?? false;
   }
 
   @override
@@ -398,6 +409,17 @@ class _ArticleEditorScreenState extends State<ArticleEditorScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        value: _isBreaking,
+                        onChanged: (value) =>
+                            setState(() => _isBreaking = value),
+                        title: const Text('خبر عاجل'),
+                        subtitle: const Text(
+                          'يتجه لقسم الأخبار اللافتة في الرئيسية.',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       TextField(
                         controller: _contentController,
                         maxLines: 10,
@@ -408,33 +430,39 @@ class _ArticleEditorScreenState extends State<ArticleEditorScreen> {
                       ),
                       const SizedBox(height: 18),
                       FilledButton.icon(
-                        onPressed: () {
-                          final error = state.saveArticle(
-                            existingArticle: widget.existingArticle,
-                            title: _titleController.text,
-                            content: _contentController.text,
-                            category: _category,
-                            source: _sourceController.text,
-                            link: _linkController.text,
-                            imageUrl: _imageController.text,
-                          );
-                          if (error != null) {
-                            ScaffoldMessenger.of(
-                              context,
-                            ).showSnackBar(SnackBar(content: Text(error)));
-                            return;
-                          }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                widget.existingArticle == null
-                                    ? 'تم نشر الخبر بنجاح.'
-                                    : 'تم تحديث الخبر بنجاح.',
-                              ),
-                            ),
-                          );
-                          Navigator.of(context).pop();
-                        },
+                        onPressed: state.isLoading
+                            ? null
+                            : () async {
+                                final error = await state.saveArticle(
+                                  existingArticle: widget.existingArticle,
+                                  title: _titleController.text,
+                                  content: _contentController.text,
+                                  category: _category,
+                                  source: _sourceController.text,
+                                  link: _linkController.text,
+                                  imageUrl: _imageController.text,
+                                  isBreaking: _isBreaking,
+                                );
+                                if (!context.mounted) {
+                                  return;
+                                }
+                                if (error != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(error)),
+                                  );
+                                  return;
+                                }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      widget.existingArticle == null
+                                          ? 'تم نشر الخبر بنجاح.'
+                                          : 'تم تحديث الخبر بنجاح.',
+                                    ),
+                                  ),
+                                );
+                                Navigator.of(context).pop();
+                              },
                         icon: const Icon(Icons.save_outlined),
                         label: Text(
                           widget.existingArticle == null
@@ -442,6 +470,10 @@ class _ArticleEditorScreenState extends State<ArticleEditorScreen> {
                               : 'حفظ التعديلات',
                         ),
                       ),
+                      if (state.isLoading) ...[
+                        const SizedBox(height: 14),
+                        const LinearProgressIndicator(),
+                      ],
                     ],
                   ),
                 ),

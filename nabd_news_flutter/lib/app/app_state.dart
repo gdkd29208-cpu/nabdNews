@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../models/app_user.dart';
 import '../models/journalist_group.dart';
 import '../models/news_article.dart';
+import '../services/api_client.dart';
 
 class AppScope extends InheritedNotifier<AppState> {
   const AppScope({super.key, required AppState notifier, required super.child})
@@ -16,167 +17,69 @@ class AppScope extends InheritedNotifier<AppState> {
 }
 
 class AppState extends ChangeNotifier {
+  AppState({ApiClient? apiClient}) : this._(apiClient: apiClient);
+
   AppState._({
-    required List<AppUser> users,
-    required Map<int, String> passwords,
-    required List<NewsArticle> articles,
-    required List<JournalistGroup> groups,
-  }) : _users = users,
-       _passwords = passwords,
-       _articles = articles,
-       _groups = groups,
-       _nextUserId = users.length + 1,
-       _nextArticleId = articles.length + 1,
-       _nextGroupId = groups.length + 1;
+    ApiClient? apiClient,
+    List<NewsArticle> articles = const [],
+    List<JournalistGroup> groups = const [],
+    AppUser? currentUser,
+    bool isInitialized = false,
+  }) : _apiClient = apiClient ?? ApiClient(),
+       _articles = List<NewsArticle>.from(articles),
+       _groups = List<JournalistGroup>.from(groups),
+       _currentUser = currentUser,
+       _isInitialized = isInitialized;
 
   static const demoAdminSecret = 'nabd-admin';
 
-  final List<AppUser> _users;
-  final Map<int, String> _passwords;
-  final List<NewsArticle> _articles;
-  final List<JournalistGroup> _groups;
-
-  int _nextUserId;
-  int _nextArticleId;
-  int _nextGroupId;
-  AppUser? _currentUser;
-
-  factory AppState.seeded() {
-    final users = <AppUser>[
-      const AppUser(
-        id: 1,
-        name: 'هيبة التحرير',
-        email: 'editor@nabd.app',
-        isAdmin: true,
-      ),
-      const AppUser(id: 2, name: 'سارة الصحفية', email: 'sara@nabd.app'),
-      const AppUser(id: 3, name: 'عمر المراسل', email: 'omar@nabd.app'),
-    ];
-
-    final articles = <NewsArticle>[
-      NewsArticle(
-        id: 1,
-        authorId: 2,
-        title: 'جلسة برلمانية تناقش خطة إعلامية وطنية جديدة',
-        content:
-            'ناقش عدد من النواب والصحفيين آلية الوصول إلى خطاب إعلامي أكثر مهنية، مع التركيز على سرعة نقل المعلومة ودقة التحقق من المصادر.',
-        category: 'سياسة',
-        source: 'مراسل نبض',
-        publishedAt: DateTime.now().subtract(const Duration(hours: 3)),
-      ),
-      NewsArticle(
-        id: 2,
-        authorId: 1,
-        title: 'منصة تحرير رقمية تقلل وقت إنتاج الخبر إلى النصف',
-        content:
-            'اعتمد فريق التحرير الداخلي نظام متابعة جديد يربط المراسلين بالمحررين ويعرض حالة كل مادة من لحظة الاستلام حتى النشر.',
-        category: 'تكنولوجيا',
-        source: 'هيئة التحرير',
-        publishedAt: DateTime.now().subtract(const Duration(hours: 6)),
-      ),
-      NewsArticle(
-        id: 3,
-        authorId: 3,
-        title: 'ملف خاص عن استعدادات الأندية للموسم الجديد',
-        content:
-            'يستعرض التقرير حركة التعاقدات وأثر المعسكرات الخارجية على جاهزية الفرق، مع قراءة فنية لخطط المدربين قبل انطلاق المنافسات.',
-        category: 'رياضة',
-        source: 'قسم الرياضة',
-        publishedAt: DateTime.now().subtract(const Duration(hours: 10)),
-      ),
-      NewsArticle(
-        id: 4,
-        authorId: 2,
-        title: 'تقرير اقتصادي: الأسواق تترقب موجة استثمارات جديدة',
-        content:
-            'ارتفعت التوقعات بدخول استثمارات نوعية في قطاعات التكنولوجيا والطاقة والنقل، وسط دعوات لرفع جودة البيانات المتاحة للمستثمرين.',
-        category: 'اقتصاد',
-        source: 'اقتصاد نبض',
-        publishedAt: DateTime.now().subtract(const Duration(days: 1)),
-      ),
-      NewsArticle(
-        id: 5,
-        authorId: 1,
-        title: 'افتتاح معرض ثقافي يركز على الصحافة البصرية',
-        content:
-            'المعرض يجمع مصورين وصحفيين شباب لتجربة صيغ سردية جديدة تعتمد الصورة، النص القصير، والوسائط التفاعلية.',
-        category: 'ثقافة',
-        source: 'الملحق الثقافي',
-        publishedAt: DateTime.now().subtract(const Duration(days: 1, hours: 5)),
-      ),
-      NewsArticle(
-        id: 6,
-        title: 'وكالات عالمية تتابع محادثات اقتصادية إقليمية',
-        content:
-            'عدة عواصم تراقب نتائج الاجتماعات الاقتصادية الأخيرة، مع توقعات بإعلانات مشتركة تخص التجارة والطاقة خلال الأيام المقبلة.',
-        category: 'عالمي',
-        source: 'Bloomberg',
-        link: 'https://example.com/global-economy',
-        isScraped: true,
-        publishedAt: DateTime.now().subtract(const Duration(minutes: 45)),
-      ),
-      NewsArticle(
-        id: 7,
-        title: 'اتفاق أولي على توسيع التعاون التقني بين مؤسسات إعلامية',
-        content:
-            'المحادثات ركزت على تبادل الخبرات في الذكاء الاصطناعي والتحقق الرقمي وتطوير غرف الأخبار السريعة.',
-        category: 'تكنولوجيا',
-        source: 'TechCrunch',
-        link: 'https://example.com/media-tech',
-        isScraped: true,
-        publishedAt: DateTime.now().subtract(const Duration(hours: 2)),
-      ),
-      NewsArticle(
-        id: 8,
-        title: 'مراقبون: الهدوء الرياضي قد يسبق صفقات مفاجئة',
-        content:
-            'تشير التقديرات إلى أن عدداً من الأندية ينتظر نهاية المرحلة الحالية لإعلان صفقاته الكبرى بعيداً عن الضجيج الإعلامي.',
-        category: 'رياضة',
-        source: 'BBC Sport',
-        link: 'https://example.com/sports-market',
-        isScraped: true,
-        publishedAt: DateTime.now().subtract(const Duration(hours: 8)),
-      ),
-    ];
-
-    final groups = <JournalistGroup>[
-      JournalistGroup(
-        id: 1,
-        name: 'شبكة المراسلين',
-        description:
-            'مساحة سريعة لتنسيق التغطيات اليومية بين الميدان وغرفة الأخبار.',
-        ownerId: 2,
-        memberIds: const [2, 3],
-        accessCode: 'press2026',
-        createdAt: DateTime.now().subtract(const Duration(days: 4)),
-      ),
-      JournalistGroup(
-        id: 2,
-        name: 'محررو التحقيقات',
-        description:
-            'كروب لتبادل الملفات والفرضيات الأولية قبل تحويلها إلى تحقيق كامل.',
-        ownerId: 1,
-        memberIds: const [1, 2],
-        accessCode: 'investigate',
-        createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-    ];
-
+  factory AppState.preview() {
     return AppState._(
-      users: users,
-      passwords: <int, String>{
-        1: 'admin123',
-        2: 'journalist123',
-        3: 'reporter123',
-      },
-      articles: articles,
-      groups: groups,
+      isInitialized: true,
+      currentUser: const AppUser(
+        id: 99,
+        name: 'مستخدم تجريبي',
+        email: 'preview@nabd.app',
+      ),
+      articles: [
+        NewsArticle(
+          id: 1,
+          authorId: 99,
+          authorName: 'مستخدم تجريبي',
+          title: 'نبض نيوز',
+          content: 'خبر تجريبي لعرض نسخة Flutter داخل الاختبارات.',
+          category: 'تكنولوجيا',
+          source: 'Preview API',
+          publishedAt: DateTime(2026, 3, 30, 10),
+        ),
+      ],
+      groups: [
+        JournalistGroup(
+          id: 1,
+          name: 'كروب تجريبي',
+          ownerId: 99,
+          ownerName: 'مستخدم تجريبي',
+          memberCount: 1,
+          isMember: true,
+          createdAt: DateTime(2026, 3, 30, 10),
+        ),
+      ],
     );
   }
 
-  AppUser? get currentUser => _currentUser;
+  final ApiClient _apiClient;
 
-  List<AppUser> get users => List.unmodifiable(_users);
+  List<NewsArticle> _articles = [];
+  List<JournalistGroup> _groups = [];
+  AppUser? _currentUser;
+  bool _isLoading = false;
+  bool _isInitialized = false;
+  String? _lastError;
+
+  AppUser? get currentUser => _currentUser;
+  bool get isLoading => _isLoading;
+  bool get isInitialized => _isInitialized;
+  String? get lastError => _lastError;
 
   List<NewsArticle> get news {
     final copy = [..._articles];
@@ -211,19 +114,7 @@ class AppState extends ChangeNotifier {
   }
 
   List<JournalistGroup> groupsForUser(int userId) {
-    return groups.where((group) => group.memberIds.contains(userId)).toList();
-  }
-
-  AppUser? userById(int? id) {
-    if (id == null) {
-      return null;
-    }
-    for (final user in _users) {
-      if (user.id == id) {
-        return user;
-      }
-    }
-    return null;
+    return groups.where((group) => group.isMember).toList(growable: false);
   }
 
   NewsArticle? articleById(int id) {
@@ -236,10 +127,11 @@ class AppState extends ChangeNotifier {
   }
 
   String authorLabelFor(NewsArticle article) {
-    if (article.authorId == null) {
-      return article.source.isEmpty ? 'مصدر خارجي' : article.source;
+    final authorName = article.authorName?.trim();
+    if (authorName != null && authorName.isNotEmpty) {
+      return authorName;
     }
-    return userById(article.authorId)?.name ?? article.source;
+    return article.source;
   }
 
   List<NewsArticle> filterNews({
@@ -261,85 +153,117 @@ class AppState extends ChangeNotifier {
         .toList(growable: false);
   }
 
-  bool login({required String email, required String password}) {
-    final normalizedEmail = email.trim().toLowerCase();
-    for (final user in _users) {
-      if (user.email.toLowerCase() == normalizedEmail &&
-          _passwords[user.id] == password) {
-        _currentUser = user;
-        notifyListeners();
-        return true;
-      }
-    }
-    return false;
+  Future<void> bootstrap() async {
+    await refreshData(showLoader: true);
+    _isInitialized = true;
+    notifyListeners();
   }
 
-  String? register({
+  Future<void> refreshData({bool showLoader = true}) async {
+    if (showLoader) {
+      _setLoading(true);
+    }
+
+    try {
+      _lastError = null;
+      _articles = await _apiClient.fetchNews();
+      _groups = await _apiClient.fetchGroups(userId: _currentUser?.id);
+    } catch (error) {
+      _lastError = _readableMessage(error);
+    } finally {
+      if (showLoader) {
+        _setLoading(false);
+      } else {
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<bool> login({required String email, required String password}) async {
+    _setLoading(true);
+
+    try {
+      _lastError = null;
+      _currentUser = await _apiClient.login(email: email, password: password);
+      await refreshData(showLoader: false);
+      return true;
+    } catch (error) {
+      _lastError = _readableMessage(error);
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<String?> register({
     required String name,
     required String email,
     required String password,
     required String confirmPassword,
     String adminSecret = '',
-  }) {
-    if (name.trim().isEmpty || email.trim().isEmpty) {
-      return 'الاسم والبريد الإلكتروني مطلوبان.';
-    }
-    if (password.length < 8) {
-      return 'كلمة المرور يجب أن تكون 8 أحرف على الأقل.';
-    }
+  }) async {
     if (password != confirmPassword) {
       return 'تأكيد كلمة المرور غير مطابق.';
     }
-    final normalizedEmail = email.trim().toLowerCase();
-    if (_users.any((user) => user.email.toLowerCase() == normalizedEmail)) {
-      return 'هذا البريد مستخدم بالفعل.';
+
+    _setLoading(true);
+
+    try {
+      _lastError = null;
+      _currentUser = await _apiClient.register(
+        name: name,
+        email: email,
+        password: password,
+        adminSecret: adminSecret,
+      );
+      await refreshData(showLoader: false);
+      return null;
+    } catch (error) {
+      final message = _readableMessage(error);
+      _lastError = message;
+      return message;
+    } finally {
+      _setLoading(false);
     }
-
-    final user = AppUser(
-      id: _nextUserId++,
-      name: name.trim(),
-      email: normalizedEmail,
-      isAdmin: adminSecret.trim() == demoAdminSecret,
-    );
-    _users.add(user);
-    _passwords[user.id] = password;
-    _currentUser = user;
-    notifyListeners();
-    return null;
   }
 
-  void logout() {
+  Future<void> logout() async {
     _currentUser = null;
-    notifyListeners();
+    await refreshData(showLoader: true);
   }
 
-  String? updateProfile({required String name, required String email}) {
+  Future<String?> updateProfile({
+    required String name,
+    required String email,
+    String password = '',
+  }) async {
     final user = _currentUser;
     if (user == null) {
       return 'لازم تسجل دخول أولاً.';
     }
-    if (name.trim().isEmpty || email.trim().isEmpty) {
-      return 'الاسم والبريد مطلوبان.';
-    }
 
-    final normalizedEmail = email.trim().toLowerCase();
-    final emailTaken = _users.any(
-      (candidate) =>
-          candidate.id != user.id &&
-          candidate.email.toLowerCase() == normalizedEmail,
-    );
-    if (emailTaken) {
-      return 'هذا البريد مستخدم من حساب آخر.';
-    }
+    _setLoading(true);
 
-    final index = _users.indexWhere((candidate) => candidate.id == user.id);
-    _users[index] = user.copyWith(name: name.trim(), email: normalizedEmail);
-    _currentUser = _users[index];
-    notifyListeners();
-    return null;
+    try {
+      _lastError = null;
+      _currentUser = await _apiClient.updateProfile(
+        userId: user.id,
+        name: name,
+        email: email,
+        password: password,
+      );
+      await refreshData(showLoader: false);
+      return null;
+    } catch (error) {
+      final message = _readableMessage(error);
+      _lastError = message;
+      return message;
+    } finally {
+      _setLoading(false);
+    }
   }
 
-  String? saveArticle({
+  Future<String?> saveArticle({
     NewsArticle? existingArticle,
     required String title,
     required String content,
@@ -347,55 +271,50 @@ class AppState extends ChangeNotifier {
     required String source,
     required String link,
     required String imageUrl,
-  }) {
+    bool isBreaking = false,
+  }) async {
     final user = _currentUser;
     if (user == null) {
       return 'سجل دخولك حتى تنشر أو تعدل خبر.';
     }
-    if (title.trim().isEmpty || content.trim().isEmpty) {
-      return 'العنوان والمحتوى مطلوبان.';
-    }
 
-    final cleanedSource = source.trim().isEmpty ? user.name : source.trim();
-    final cleanedLink = link.trim().isEmpty ? null : link.trim();
-    final cleanedImage = imageUrl.trim().isEmpty ? null : imageUrl.trim();
+    _setLoading(true);
 
-    if (existingArticle == null) {
-      _articles.add(
-        NewsArticle(
-          id: _nextArticleId++,
-          authorId: user.id,
-          title: title.trim(),
-          content: content.trim(),
+    try {
+      _lastError = null;
+      if (existingArticle == null) {
+        await _apiClient.createArticle(
+          userId: user.id,
+          title: title,
+          description: content,
           category: category,
-          source: cleanedSource,
-          link: cleanedLink,
-          imageUrl: cleanedImage,
-          publishedAt: DateTime.now(),
-        ),
-      );
-      notifyListeners();
+          sourceName: source.isEmpty ? user.name : source,
+          sourceUrl: link,
+          imageUrl: imageUrl,
+          isBreaking: isBreaking,
+        );
+      } else {
+        await _apiClient.updateArticle(
+          userId: user.id,
+          articleId: existingArticle.id,
+          title: title,
+          description: content,
+          category: category,
+          sourceName: source.isEmpty ? user.name : source,
+          sourceUrl: link,
+          imageUrl: imageUrl,
+          isBreaking: isBreaking,
+        );
+      }
+      await refreshData(showLoader: false);
       return null;
+    } catch (error) {
+      final message = _readableMessage(error);
+      _lastError = message;
+      return message;
+    } finally {
+      _setLoading(false);
     }
-
-    if (!canEditArticle(existingArticle)) {
-      return 'ليس لديك صلاحية تعديل هذا الخبر.';
-    }
-
-    final index = _articles.indexWhere(
-      (article) => article.id == existingArticle.id,
-    );
-    _articles[index] = existingArticle.copyWith(
-      title: title.trim(),
-      content: content.trim(),
-      category: category,
-      source: cleanedSource,
-      link: cleanedLink,
-      imageUrl: cleanedImage,
-      publishedAt: DateTime.now(),
-    );
-    notifyListeners();
-    return null;
   }
 
   bool canEditArticle(NewsArticle article) {
@@ -406,72 +325,100 @@ class AppState extends ChangeNotifier {
     return user.isAdmin || article.authorId == user.id;
   }
 
-  bool deleteArticle(int articleId) {
-    final article = articleById(articleId);
-    if (article == null || !canEditArticle(article)) {
+  Future<bool> deleteArticle(int articleId) async {
+    final user = _currentUser;
+    if (user == null) {
       return false;
     }
-    _articles.removeWhere((candidate) => candidate.id == articleId);
-    notifyListeners();
-    return true;
+
+    _setLoading(true);
+
+    try {
+      _lastError = null;
+      await _apiClient.deleteArticle(userId: user.id, articleId: articleId);
+      await refreshData(showLoader: false);
+      return true;
+    } catch (error) {
+      _lastError = _readableMessage(error);
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
 
-  String? createGroup({
+  Future<String?> createGroup({
     required String name,
     required String description,
     required String password,
     required String confirmPassword,
-  }) {
+  }) async {
     final user = _currentUser;
     if (user == null) {
       return 'لازم تسجل دخول أولاً.';
-    }
-    if (name.trim().isEmpty) {
-      return 'اسم الكروب مطلوب.';
-    }
-    if (password.length < 6) {
-      return 'كلمة مرور الكروب لازم تكون 6 أحرف على الأقل.';
     }
     if (password != confirmPassword) {
       return 'تأكيد كلمة مرور الكروب غير مطابق.';
     }
 
-    _groups.add(
-      JournalistGroup(
-        id: _nextGroupId++,
-        name: name.trim(),
-        description: description.trim().isEmpty ? null : description.trim(),
-        ownerId: user.id,
-        memberIds: [user.id],
-        accessCode: password,
-        createdAt: DateTime.now(),
-      ),
-    );
-    notifyListeners();
-    return null;
+    _setLoading(true);
+
+    try {
+      _lastError = null;
+      await _apiClient.createGroup(
+        userId: user.id,
+        name: name,
+        description: description,
+        password: password,
+      );
+      await refreshData(showLoader: false);
+      return null;
+    } catch (error) {
+      final message = _readableMessage(error);
+      _lastError = message;
+      return message;
+    } finally {
+      _setLoading(false);
+    }
   }
 
-  String? joinGroup({required int groupId, required String password}) {
+  Future<String?> joinGroup({
+    required int groupId,
+    required String password,
+  }) async {
     final user = _currentUser;
     if (user == null) {
       return 'لازم تسجل دخول أولاً.';
     }
 
-    final index = _groups.indexWhere((group) => group.id == groupId);
-    if (index == -1) {
-      return 'الكروب غير موجود.';
-    }
+    _setLoading(true);
 
-    final group = _groups[index];
-    if (group.accessCode != password) {
-      return 'كلمة مرور الكروب غير صحيحة.';
+    try {
+      _lastError = null;
+      await _apiClient.joinGroup(
+        userId: user.id,
+        groupId: groupId,
+        password: password,
+      );
+      await refreshData(showLoader: false);
+      return null;
+    } catch (error) {
+      final message = _readableMessage(error);
+      _lastError = message;
+      return message;
+    } finally {
+      _setLoading(false);
     }
-    if (group.memberIds.contains(user.id)) {
-      return 'أنت منضم لهذا الكروب بالفعل.';
-    }
+  }
 
-    _groups[index] = group.copyWith(memberIds: [...group.memberIds, user.id]);
+  void _setLoading(bool value) {
+    _isLoading = value;
     notifyListeners();
-    return null;
+  }
+
+  String _readableMessage(Object error) {
+    if (error is ApiException) {
+      return error.message;
+    }
+    return 'حدث خطأ غير متوقع في الاتصال مع الـ API.';
   }
 }

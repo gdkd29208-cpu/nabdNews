@@ -3,36 +3,34 @@ class JournalistGroup {
     required this.id,
     required this.name,
     required this.ownerId,
-    required this.memberIds,
-    required this.accessCode,
+    required this.ownerName,
+    required this.memberCount,
+    required this.isMember,
     required this.createdAt,
     this.description,
   });
 
-  final int id;
-  final int ownerId;
-  final String name;
-  final String? description;
-  final String accessCode;
-  final DateTime createdAt;
-  final List<int> memberIds;
-
-  bool hasMember(int userId) => memberIds.contains(userId);
-
-  JournalistGroup copyWith({
-    String? name,
-    String? description,
-    String? accessCode,
-    List<int>? memberIds,
-  }) {
+  factory JournalistGroup.fromApi(Map<String, dynamic> json) {
     return JournalistGroup(
-      id: id,
-      ownerId: ownerId,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      accessCode: accessCode ?? this.accessCode,
-      createdAt: createdAt,
-      memberIds: memberIds ?? this.memberIds,
+      id: json['id'] as int,
+      name: (json['name'] ?? '') as String,
+      description: json['description'] as String?,
+      ownerId: json['owner_id'] as int,
+      ownerName: (json['owner_name'] ?? 'غير معروف') as String,
+      memberCount: json['member_count'] as int,
+      isMember: json['is_member'] == true || json['is_member'] == 1,
+      createdAt:
+          DateTime.tryParse((json['created_at'] ?? '') as String) ??
+          DateTime.now(),
     );
   }
+
+  final int id;
+  final int ownerId;
+  final String ownerName;
+  final String name;
+  final String? description;
+  final int memberCount;
+  final bool isMember;
+  final DateTime createdAt;
 }

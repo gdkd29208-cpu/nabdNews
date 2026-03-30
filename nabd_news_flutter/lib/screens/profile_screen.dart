@@ -22,6 +22,10 @@ class ProfileScreen extends StatelessWidget {
     final state = AppScope.of(context);
     final user = state.currentUser;
 
+    if (!state.isInitialized && state.news.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     if (user == null) {
       return SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
@@ -49,7 +53,7 @@ class ProfileScreen extends StatelessWidget {
 
     final myGroups = state.groupsForUser(user.id);
     final discoverGroups = state.groups
-        .where((group) => !group.hasMember(user.id))
+        .where((group) => !group.isMember)
         .toList();
 
     return SingleChildScrollView(
@@ -59,7 +63,7 @@ class ProfileScreen extends StatelessWidget {
         children: [
           _ProfileHeaderCard(
             onEditProfile: () => _showEditProfileDialog(context),
-            onLogout: () => state.logout(),
+            onLogout: () async => state.logout(),
           ),
           const SizedBox(height: 20),
           Wrap(
@@ -143,6 +147,10 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 14),
             ...discoverGroups.map((group) => _GroupCard(group: group)),
           ],
+          if (state.isLoading) ...[
+            const SizedBox(height: 14),
+            const LinearProgressIndicator(),
+          ],
         ],
       ),
     );
@@ -184,11 +192,14 @@ class ProfileScreen extends StatelessWidget {
               child: const Text('إلغاء'),
             ),
             FilledButton(
-              onPressed: () {
-                final error = state.updateProfile(
+              onPressed: () async {
+                final error = await state.updateProfile(
                   name: nameController.text,
                   email: emailController.text,
                 );
+                if (!context.mounted) {
+                  return;
+                }
                 if (error != null) {
                   ScaffoldMessenger.of(
                     context,
@@ -257,13 +268,16 @@ class ProfileScreen extends StatelessWidget {
               child: const Text('إلغاء'),
             ),
             FilledButton(
-              onPressed: () {
-                final error = state.createGroup(
+              onPressed: () async {
+                final error = await state.createGroup(
                   name: nameController.text,
                   description: descriptionController.text,
                   password: passwordController.text,
                   confirmPassword: confirmController.text,
                 );
+                if (!context.mounted) {
+                  return;
+                }
                 if (error != null) {
                   ScaffoldMessenger.of(
                     context,
@@ -293,7 +307,7 @@ class ProfileScreen extends StatelessWidget {
     }
 
     final availableGroups = state.groups
-        .where((group) => !group.hasMember(user.id))
+        .where((group) => !group.isMember)
         .toList();
     if (availableGroups.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -345,11 +359,14 @@ class ProfileScreen extends StatelessWidget {
                 child: const Text('إلغاء'),
               ),
               FilledButton(
-                onPressed: () {
-                  final error = state.joinGroup(
+                onPressed: () async {
+                  final error = await state.joinGroup(
                     groupId: selectedGroupId,
                     password: passwordController.text,
                   );
+                  if (!context.mounted) {
+                    return;
+                  }
                   if (error != null) {
                     ScaffoldMessenger.of(
                       context,
@@ -448,9 +465,6 @@ class _GroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = AppScope.of(context);
-    final owner = state.userById(group.ownerId);
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Card(
@@ -480,8 +494,8 @@ class _GroupCard extends StatelessWidget {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  Chip(label: Text('المالك: ${owner?.name ?? 'غير معروف'}')),
-                  Chip(label: Text('${group.memberIds.length} أعضاء')),
+                  Chip(label: Text('المالك: ${group.ownerName}')),
+                  Chip(label: Text('${group.memberCount} أعضاء')),
                 ],
               ),
             ],
